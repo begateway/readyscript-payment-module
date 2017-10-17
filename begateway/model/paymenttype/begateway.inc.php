@@ -18,11 +18,6 @@ require_once __DIR__ . '/../../include/begateway-api-php/lib/beGateway.php';
 */
 class BeGateway extends \Shop\Model\PaymentType\AbstractType
 {
-    private $logger;
-
-    function __construct() {
-      $this->logger = \Logger::getLogger(__CLASS__);
-    }
 
     /**
     * Возвращает название расчетного модуля (типа доставки)
@@ -176,7 +171,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
       \beGateway\Settings::$checkoutBase = 'https://' . $this->getOption('begateway_domain_checkout', '');
 
       $response = $token->submit();
-      $this->logger->info(print_r($response, true));
 
   		if($response->isSuccess()){
   			return $response->getRedirectUrl();
@@ -219,14 +213,12 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
 
       $webhook = new \beGateway\Webhook;
 
-      $this->logger->info(print_r($webhook, true));
       if ($webhook->isAuthorized()) {
         // Запрос авторизирован
         list($transaction_id, $order_id) = explode('|', $webhook->getTrackingId());
 
         if ($transaction->order_id != (int) $order_id) {
           $error = t('Не верный номер заказа');
-          $this->logger->info($error);
           ob_start();
           echo 'ERROR='.$error;
           die();
@@ -236,7 +228,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
         $order = $transaction->getOrder();
         if (empty($order)) {
           $error = t('Заказ не найден');
-          $this->logger->info($error);
           ob_start();
           echo 'ERROR='.$error;
           die();
@@ -249,7 +240,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
         // проверяем сумму оплаты
         if ($money->getCents() != $webhook->getResponse()->transaction->amount) {
           $error = t('Не верная суммы оплаты');
-          $this->logger->info($error);
           ob_start();
           echo 'ERROR='.$error;
           die();
@@ -257,7 +247,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
 
         if (!$webhook->isSuccess()) {
           $error = t('Не успешный статус оплаты');
-          $this->logger->info($error);
           ob_start();
           echo 'ERROR='.$error;
           die();
@@ -279,14 +268,12 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
           \Alerts\Model\Manager::send($notice);
 
           $text = sprintf(t('Заказ $s оплачен. UID %s. Способ оплаты %s'), $transaction->order_id, $webhook->getUid(), $webhook->getResponse()->transaction->payment_type);
-          $this->logger->info($text);
           ob_start();
           echo 'OK';
           die();
         }
       } else {
           $error = t('Требуется авторизация');
-          $this->logger->info($error);
           ob_start();
           echo 'ERROR='.$error;
           die();
@@ -317,7 +304,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
       if (empty($order)) {
         $error = t('Заказ не найден');
 
-        $this->logger->info($error);
         throw new \Exception($error);
       }
 
@@ -329,7 +315,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
         exit;
       }
       $text = sprintf(t('Заказ $s оплачен.'), $transaction->order_id);
-      $this->logger->info($text);
     }
 
     /**

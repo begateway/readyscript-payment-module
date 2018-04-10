@@ -86,6 +86,11 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
               'description' => t('Включить оплату банковскими картами'),
               'checkboxview' => array(1, 0),
             )),
+            'enable_card_halva' => new Type\Integer(array(
+              'maxLength' => 1,
+              'description' => t('Включить оплату картой Халва'),
+              'checkboxview' => array(1, 0),
+            )),
             'enable_erip' => new Type\Integer(array(
               'maxLength' => 1,
               'description' => t('Включить оплату через ЕРИП'),
@@ -154,6 +159,11 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
       if ($this->getOption('enable_card')) {
         $cc = new \beGateway\PaymentMethod\CreditCard;
         $token->addPaymentMethod($cc);
+      }
+
+      if ($this->getOption('enable_card_halva')) {
+        $halva = new \beGateway\PaymentMethod\CreditCardHalva;
+        $token->addPaymentMethod($halva);
       }
 
       if ($this->getOption('enable_erip')) {

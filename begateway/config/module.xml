@@ -3,7 +3,7 @@
     <defaultValues>
         <name multilanguage="true">BeGateway</name>
         <description multilanguage="true">Приём платежей через провайдера платежей, работающего на платформе beGateway</description>
-        <version>1.0.0.1</version>
+        <version>1.0.1.0</version>
         <author>eComCharge</author>
         <is_system>1</is_system>
     </defaultValues>

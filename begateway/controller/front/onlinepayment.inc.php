@@ -30,4 +30,3 @@ class OnlinePayment extends \RS\Controller\Front {
   }
 
 }
-?>

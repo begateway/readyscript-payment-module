@@ -11,7 +11,7 @@ namespace BeGateway\Model\PaymentType;
 use \RS\Orm\Type;
 use \Shop\Model\Orm\Transaction;
 
-require_once __DIR__ . '/../../include/begateway-api-php/lib/beGateway.php';
+require_once __DIR__ . '/../../include/begateway-api-php/lib/BeGateway.php';
 
 /**
 * Способ оплаты - BeGateway
@@ -81,6 +81,11 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
                 'description' => t('Домен страницы оплаты'),
 
             )),
+            'test_mode' => new Type\Integer(array(
+              'maxLength' => 1,
+              'description' => t('Включить тестовый режим'),
+              'checkboxview' => array(1, 0),
+            )),
             'enable_card' => new Type\Integer(array(
               'maxLength' => 1,
               'description' => t('Включить оплату банковскими картами'),
@@ -128,7 +133,7 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
   		$user = $order->getUser();            // Пользователь который должен оплатить
       $site_config = \RS\Config\Loader::getSiteConfig(); // Настройки текущего сайта
 
-      $token = new \beGateway\GetPaymentToken();
+      $token = new \BeGateway\GetPaymentToken();
       $token->money->setAmount($transaction->cost);
       $token->money->setCurrency($this->getPaymentCurrency());
 
@@ -153,22 +158,19 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
 
       $token->customer->setEmail($user['e_mail']);
 
-      $token->setAddressHidden();
-      $token->setEmailReadonly();
-
       if ($this->getOption('enable_card')) {
-        $cc = new \beGateway\PaymentMethod\CreditCard;
+        $cc = new \BeGateway\PaymentMethod\CreditCard;
         $token->addPaymentMethod($cc);
       }
 
       if ($this->getOption('enable_card_halva')) {
-        $halva = new \beGateway\PaymentMethod\CreditCardHalva;
+        $halva = new \BeGateway\PaymentMethod\CreditCardHalva;
         $token->addPaymentMethod($halva);
       }
 
       if ($this->getOption('enable_erip')) {
         $order_id = $order['order_num'];
-        $erip = new \beGateway\PaymentMethod\Erip(array(
+        $erip = new \BeGateway\PaymentMethod\Erip(array(
           'order_id' => $order_id,
           'account_number' => strval($order_id),
           'service_no' => $this->getOption('erip_service_no'),
@@ -176,9 +178,13 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
         $token->addPaymentMethod($erip);
       }
 
-      \beGateway\Settings::$shopId = $this->getOption('begateway_shop_id', '');
-      \beGateway\Settings::$shopKey = $this->getOption('begateway_shop_key', '');
-      \beGateway\Settings::$checkoutBase = 'https://' . $this->getOption('begateway_domain_checkout', '');
+      if ($this->getOption('test_mode')) {
+        $token->setTestMode(true);
+      }
+
+      \BeGateway\Settings::$shopId = $this->getOption('begateway_shop_id', '');
+      \BeGateway\Settings::$shopKey = $this->getOption('begateway_shop_key', '');
+      \BeGateway\Settings::$checkoutBase = 'https://' . $this->getOption('begateway_domain_checkout', '');
 
       $response = $token->submit();
 
@@ -218,10 +224,10 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
     function onResult(\Shop\Model\Orm\Transaction $transaction, \RS\Http\Request $request)
     {
 
-      \beGateway\Settings::$shopId = $this->getOption('begateway_shop_id', '');
-      \beGateway\Settings::$shopKey = $this->getOption('begateway_shop_key', '');
+      \BeGateway\Settings::$shopId = $this->getOption('begateway_shop_id', '');
+      \BeGateway\Settings::$shopKey = $this->getOption('begateway_shop_key', '');
 
-      $webhook = new \beGateway\Webhook;
+      $webhook = new \BeGateway\Webhook;
 
       if ($webhook->isAuthorized()) {
         // Запрос авторизирован
@@ -243,7 +249,7 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
           die();
         }
 
-        $money = new \beGateway\Money;
+        $money = new \BeGateway\Money;
         $money->setAmount($transaction->cost);
         $money->setCurrency($this->getPaymentCurrency());
 

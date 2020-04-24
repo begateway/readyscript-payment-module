@@ -15,10 +15,6 @@ services:
     cap_add:
       - NET_ADMIN
     tty: true
-    #volumes:
-      #- ./src/modules/gateways/begateway:/usr/share/nginx/html/modules/gateways/begateway
-      #- ./src/modules/gateways/callback/begateway.php:/usr/share/nginx/html/modules/gateways/callback/begateway.php
-      #- ./src/modules/gateways/begateway.php:/usr/share/nginx/html/modules/gateways/begateway.php
     restart: always
 
   readyscript_5:

@@ -1,0 +1,49 @@
+version: '3.7'
+
+services:
+  readyscript: &readyscript
+    build: &build
+      context: ./docker
+      dockerfile: Dockerfile
+    networks:
+      readyscript_net:
+        ipv4_address: 172.16.16.10
+    depends_on:
+      - mysql
+    ports:
+      - 80:8080
+    cap_add:
+      - NET_ADMIN
+    tty: true
+    restart: always
+
+  readyscript_5:
+    build:
+      args:
+        readyscript_version: 5
+      <<: *build
+    volumes:
+      - ./begateway:/var/www/html/modules/begateway
+    extra_hosts:
+      - "readyscript5.local:172.16.16.10"
+    <<: *readyscript
+
+  mysql:
+    image: mysql:5.5
+    restart: always
+    networks:
+      readyscript_net:
+        ipv4_address: 172.16.16.20
+    volumes:
+      - /var/lib/mysql
+      - ./docker/etc/mysql/mysql.conf.d/sql_mode.cnf:/etc/mysql/mysql.conf.d/sql_mode.cnf
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: readyscript
+
+networks:
+  readyscript_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.16.16.0/24"

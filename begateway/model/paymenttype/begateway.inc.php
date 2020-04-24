@@ -149,7 +149,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
       $success_url .= (strpos($success_url, '?') == false ? '?' : '&')."transaction={$transaction->id}&id_order={$order['order_num']}";
       $fail_url .= (strpos($fail_url, '?') == false ? '?' : '&')."transaction={$transaction->id}&id_order={$order['order_num']}";
       $notify_url .= (strpos($notify_url, '?') == false ? '?' : '&').'transaction='.$transaction->id;
-      $notify_url = str_replace('carts.local', 'webhook.begateway.com:8443', $notify_url);
 
       $token->setNotificationUrl($notify_url);
       $token->setSuccessUrl($success_url);

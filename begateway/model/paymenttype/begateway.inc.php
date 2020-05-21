@@ -69,27 +69,34 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
             'begateway_shop_id' => new Type\Varchar(array(
                 'maxLength' => 255,
                 'description' => t('Shop Id - идентификатор терминала'),
-
+                'default' => '361'
             )),
             'begateway_shop_key' => new Type\Varchar(array(
                 'maxLength' => 255,
                 'description' => t('Shop Key - секретный ключ терминала'),
-
+                'default' => 'b8647b68898b084b836474ed8d61ffe117c9a01168d867f24953b776ddcb134d'
             )),
             'begateway_domain_checkout' => new Type\Varchar(array(
                 'maxLength' => 255,
                 'description' => t('Домен страницы оплаты'),
-
+                'default' => 'checkout.begateway.com'
+            )),
+            'begateway_transaction_type' => new Type\Varchar(array(
+                 'description' => t('Тип операции'),
+                 'listFromArray' => array(array(0 => 'Оплата', 1 => 'Авторизация')),
+                 'default' => 0
             )),
             'test_mode' => new Type\Integer(array(
               'maxLength' => 1,
               'description' => t('Включить тестовый режим'),
               'checkboxview' => array(1, 0),
+              'default' => 1
             )),
             'enable_card' => new Type\Integer(array(
               'maxLength' => 1,
               'description' => t('Включить оплату банковскими картами'),
               'checkboxview' => array(1, 0),
+              'default' => 1
             )),
             'enable_card_halva' => new Type\Integer(array(
               'maxLength' => 1,
@@ -179,6 +186,10 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
 
       if ($this->getOption('test_mode')) {
         $token->setTestMode(true);
+      }
+
+      if ($this->getOption('begateway_transaction_type')) {
+        $token->setAuthorizationTransactionType();
       }
 
       \BeGateway\Settings::$shopId = $this->getOption('begateway_shop_id', '');

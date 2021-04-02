@@ -89,14 +89,12 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
             'test_mode' => new Type\Integer(array(
               'maxLength' => 1,
               'description' => t('Включить тестовый режим'),
-              'checkboxview' => array(1, 0),
-              'default' => 1
+              'checkboxview' => array(1, 0)
             )),
             'enable_card' => new Type\Integer(array(
               'maxLength' => 1,
               'description' => t('Включить оплату банковскими картами'),
-              'checkboxview' => array(1, 0),
-              'default' => 1
+              'checkboxview' => array(1, 0)
             )),
             'enable_card_halva' => new Type\Integer(array(
               'maxLength' => 1,

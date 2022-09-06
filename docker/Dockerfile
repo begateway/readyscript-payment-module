@@ -1,4 +1,4 @@
-FROM trafex/alpine-nginx-php7:latest
+FROM trafex/alpine-nginx-php7:1.10.0
 
 USER root
 

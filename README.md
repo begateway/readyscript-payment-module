@@ -54,5 +54,5 @@
 Для запуска docker-контейнера и установки ReadyScript создайте в hosts-файле машины docker-хоста запись:
 
 ```
-0.0.0.0 readyscript5.local
+0.0.0.0 readyscript.local
 ```

@@ -5,9 +5,15 @@ services:
     build: &build
       context: ./docker
       dockerfile: Dockerfile
+      args:
+        readyscript_version: 6
     networks:
       readyscript_net:
-        ipv4_address: 172.16.16.10
+        ipv4_address: 172.16.18.10
+    volumes:
+      - ./begateway:/var/www/html/modules/begateway
+    extra_hosts:
+      - "readyscript.local:172.16.18.10"
     depends_on:
       - mysql
     ports:
@@ -16,23 +22,12 @@ services:
       - NET_ADMIN
     tty: true
 
-  readyscript_5:
-    build:
-      args:
-        readyscript_version: 5
-      <<: *build
-    volumes:
-      - ./begateway:/var/www/html/modules/begateway
-    extra_hosts:
-      - "readyscript5.local:172.16.16.10"
-    <<: *readyscript
-
   mysql:
     image: mysql:5.6
     restart: always
     networks:
       readyscript_net:
-        ipv4_address: 172.16.16.20
+        ipv4_address: 172.16.18.20
     volumes:
       - /var/lib/mysql
       - ./docker/etc/mysql/mysql.conf.d/sql_mode.cnf:/etc/mysql/mysql.conf.d/sql_mode.cnf
@@ -45,4 +40,4 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: "172.16.16.0/24"
+        - subnet: "172.16.18.0/24"

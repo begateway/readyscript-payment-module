@@ -143,17 +143,31 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
       $token->money->setCurrency($this->getPaymentCurrency());
 
       $token->setTrackingId($transaction->id . '|' . $order['order_num']);
-      $token->setDescription(t("Оплата заказа №").$order['order_num']);
+      $token->setDescription(sprintf(t("Оплата заказа № %s", $order['order_num'])));
       $token->setLanguage(\RS\Language\Core::getCurrentLang());
 
       $router = \RS\Router\Manager::obj();
 
-      $success_url = $router->getUrl('shop-front-onlinepay', ['Act'=>'success', 'PaymentType'=>$this->getShortName()], true);
-      $fail_url = $router->getUrl('shop-front-onlinepay', ['Act'=>'fail', 'PaymentType'=>$this->getShortName()], true);
-      $notify_url = $router->getUrl('shop-front-onlinepay', ['Act'=>'result', 'PaymentType'=>$this->getShortName()], true);
-      $success_url .= (strpos($success_url, '?') == false ? '?' : '&')."transaction={$transaction->id}&id_order={$order['order_num']}";
-      $fail_url .= (strpos($fail_url, '?') == false ? '?' : '&')."transaction={$transaction->id}&id_order={$order['order_num']}";
-      $notify_url .= (strpos($notify_url, '?') == false ? '?' : '&').'transaction='.$transaction->id;
+      $success_url = $router->getUrl('shop-front-onlinepay', [
+              'Act' => 'success',
+              'PaymentType' => $this->getShortName(),
+              'transaction' => $transaction->id,
+              'id_order' => $order['order_num']
+      ], true);
+
+      $fail_url = $router->getUrl('shop-front-onlinepay', [
+              'Act' => 'fail', 
+              'PaymentType' => $this->getShortName(),
+              'transaction' => $transaction->id,
+              'id_order' => $order['order_num']
+      ], true);
+
+      $notify_url = $router->getUrl('shop-front-onlinepay', [
+              'Act' => 'result', 
+              'PaymentType' => $this->getShortName(),
+              'transaction' => $transaction->id,
+      ], true);
+      $notify_url = str_replace('readyscript.local','webhook.begateway.com:8443', $notify_url);
 
       $token->setNotificationUrl($notify_url);
       $token->setSuccessUrl($success_url);
@@ -231,30 +245,30 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
     // function onResult(\Shop\Model\Orm\Transaction $transaction, \RS\Http\Request $request)
     function onResult(\Shop\Model\Orm\Transaction $transaction, \RS\Http\Request $request)
     {
+        \BeGateway\Settings::$shopId = $this->getOption('begateway_shop_id', '');
+        \BeGateway\Settings::$shopKey = $this->getOption('begateway_shop_key', '');
 
-      \BeGateway\Settings::$shopId = $this->getOption('begateway_shop_id', '');
-      \BeGateway\Settings::$shopKey = $this->getOption('begateway_shop_key', '');
+        $webhook = new \BeGateway\Webhook;
 
-      $webhook = new \BeGateway\Webhook;
-
-      if ($webhook->isAuthorized()) {
-        // Запрос авторизирован
-        list($transaction_id, $order_id) = explode('|', $webhook->getTrackingId());
-
-        if ($transaction->order_id != (int) $order_id) {
-          $error = t('Не верный номер заказа');
-          ob_start();
-          echo 'ERROR='.$error;
-          die();
+        if (!$webhook->isAuthorized()) {
+          $this->error_message('E006', t('Требуется авторизация'));
         }
 
+        // Запрос авторизирован
+        list($transaction_id, $order_num) = explode('|', $webhook->getTrackingId());
+        
         // получаем данные заказа
         $order = $transaction->getOrder();
         if (empty($order)) {
-          $error = t('Заказ не найден');
-          ob_start();
-          echo 'ERROR='.$error;
-          die();
+            $this->error_message('E001', t('Заказ не найден'));
+        }
+
+        if ($transaction->id != $transaction_id) {
+            $this->error_message('E002', t('Не верный номер операции'));
+        }
+
+        if ((string) $order['order_num'] != (string) $order_num) {
+            $this->error_message('E003', t('Не верный номер заказа'));
         }
 
         $money = new \BeGateway\Money;
@@ -263,17 +277,11 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
 
         // проверяем сумму оплаты
         if ($money->getCents() != $webhook->getResponse()->transaction->amount) {
-          $error = t('Не верная суммы оплаты');
-          ob_start();
-          echo 'ERROR='.$error;
-          die();
+          $this->error_message('E004', t('Не верная суммы оплаты'));
         }
 
         if (!$webhook->isSuccess()) {
-          $error = t('Не успешный статус оплаты');
-          ob_start();
-          echo 'ERROR='.$error;
-          die();
+            $this->error_message('E005', t('Не успешный статус оплаты'));
         }
 
         $transaction['status'] = \Shop\Model\Orm\Transaction::STATUS_SUCCESS;
@@ -296,12 +304,6 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
           echo 'OK';
           die();
         }
-      } else {
-          $error = t('Требуется авторизация');
-          ob_start();
-          echo 'ERROR='.$error;
-          die();
-      }
     }
     /**
      * Возвращает ID заказа исходя из REQUEST-параметров соотвествующего типа оплаты
@@ -319,26 +321,32 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
     /**
      * Вызывается при переходе на страницу успеха, после совершения платежа
      *
-     * @return void
+     * @return mixed
      */
     function onSuccess(\Shop\Model\Orm\Transaction $transaction, \RS\Http\Request $request) {
       $params = $this->getOption();
-      //getting detail of order
+      // получаем заказ
       $order = $transaction->getOrder();
       if (empty($order)) {
-        $error = t('Заказ не найден');
-
-        throw new \Exception($error);
+        $this->error_message('E001', t('Заказ не найден'));
       }
 
       $router = \RS\Router\Manager::obj();
       $url = \RS\Http\Request::commonInstance();
 
       if ($order->is_payed == 0) {
-        header('Location: '.$router->getUrl('begateway-front-onlinepayment').'?transaction='.$transaction->id);
-        exit;
+        $redirect = $router->getUrl('begateway-front-onlinepayment', [
+          'transaction' => $transaction->id
+        ], true);
+      } else {
+        $redirect = $router->getUrl('shop-front-onlinepay', [
+          'PaymentType' => $this->getShortName(),
+          'Act' => 'status',
+          'transaction' => $transaction['id']
+        ], true);
       }
-      $text = sprintf(t('Заказ $s оплачен.'), $transaction->order_id);
+
+      Application::getInstance()->redirect($redirect);
     }
 
     /**
@@ -354,4 +362,17 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
         $transaction['status'] = $transaction::STATUS_FAIL;
         $transaction->update();
     }
+
+    /**
+     * Возвращает сообщение об ошибке в ответ вебхука и останавливает работу скрипта
+     * @param string $code код ошибки
+     * @param string $message описание ошибки
+     * @return ResultException
+     */
+
+     private function error_message($code, $message)
+     {
+        $message = sprintf("%s %s", $code, $message);
+        throw new ResultException($message, 1);
+     }
 }

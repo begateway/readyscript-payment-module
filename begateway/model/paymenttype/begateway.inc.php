@@ -9,7 +9,12 @@
 
 namespace BeGateway\Model\PaymentType;
 use \RS\Orm\Type;
+use RS\Orm\FormObject;
 use \Shop\Model\Orm\Transaction;
+use Shop\Model\ChangeTransaction;
+use Shop\Model\Exception as ShopException;
+use RS\Exception as RSException;
+use RS\Application\Application as Application;
 
 require_once __DIR__ . '/../../include/begateway-api-php/lib/BeGateway.php';
 
@@ -65,54 +70,62 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
     */
     function getFormObject()
     {
-        $properties = new \RS\Orm\PropertyIterator(array(
-            'begateway_shop_id' => new Type\Varchar(array(
+        $properties = new \RS\Orm\PropertyIterator([
+            'begateway_shop_id' => new Type\Varchar([
                 'maxLength' => 255,
                 'description' => t('Shop Id - идентификатор терминала'),
                 'default' => '361'
-            )),
-            'begateway_shop_key' => new Type\Varchar(array(
+            ]),
+            'begateway_shop_key' => new Type\Varchar([
                 'maxLength' => 255,
                 'description' => t('Shop Key - секретный ключ терминала'),
                 'default' => 'b8647b68898b084b836474ed8d61ffe117c9a01168d867f24953b776ddcb134d'
-            )),
-            'begateway_domain_checkout' => new Type\Varchar(array(
+            ]),
+            'begateway_domain_checkout' => new Type\Varchar([
                 'maxLength' => 255,
                 'description' => t('Домен страницы оплаты'),
                 'default' => 'checkout.begateway.com'
-            )),
-            'begateway_transaction_type' => new Type\Varchar(array(
+            ]),
+            'begateway_transaction_type' => new Type\Varchar([
                  'description' => t('Тип операции'),
-                 'listFromArray' => array(array(0 => 'Оплата', 1 => 'Авторизация')),
+                 'listFromArray' => [
+                    [
+                      0 => t('Оплата'),
+                      1 => t('Авторизация')
+                    ]
+                  ],
                  'default' => 0
-            )),
-            'test_mode' => new Type\Integer(array(
+            ]),
+            'test_mode' => new Type\Integer([
               'maxLength' => 1,
               'description' => t('Включить тестовый режим'),
-              'checkboxview' => array(1, 0)
-            )),
-            'enable_card' => new Type\Integer(array(
+              'checkboxview' => [1, 0]
+            ]),
+            'enable_card' => new Type\Integer([
               'maxLength' => 1,
               'description' => t('Включить оплату банковскими картами'),
-              'checkboxview' => array(1, 0)
-            )),
-            'enable_card_halva' => new Type\Integer(array(
+              'checkboxview' => [1, 0]
+            ]),
+            'enable_card_halva' => new Type\Integer([
               'maxLength' => 1,
               'description' => t('Включить оплату картой Халва'),
-              'checkboxview' => array(1, 0),
-            )),
-            'enable_erip' => new Type\Integer(array(
+              'checkboxview' => [1, 0]
+            ]),
+            'enable_erip' => new Type\Integer([
               'maxLength' => 1,
               'description' => t('Включить оплату через ЕРИП'),
-              'checkboxview' => array(1, 0),
-            )),
-            'erip_service_no' => new Type\Varchar(array(
+              'checkboxview' => [1, 0]
+            ]),
+            'erip_service_no' => new Type\Varchar([
                 'maxLength' => 10,
                 'description' => t('Код услуги ЕРИП'),
-            )),
-        ));
+            ]),
+        ]);
 
-        return new \RS\Orm\FormObject($properties);
+        $form_object = new FormObject($properties);
+        $form_object->setParentObject($this);
+        $form_object->setParentParamMethod('Form');
+        return $form_object;
     }
 
 
@@ -143,7 +156,7 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
       $token->money->setCurrency($this->getPaymentCurrency());
 
       $token->setTrackingId($transaction->id . '|' . $order['order_num']);
-      $token->setDescription(sprintf(t("Оплата заказа № %s", $order['order_num'])));
+      $token->setDescription(t('Оплата заказа № %0', [$order['order_num']]));
       $token->setLanguage(\RS\Language\Core::getCurrentLang());
 
       $router = \RS\Router\Manager::obj();
@@ -188,11 +201,11 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
 
       if ($this->getOption('enable_erip')) {
         $order_id = $order['order_num'];
-        $erip = new \BeGateway\PaymentMethod\Erip(array(
+        $erip = new \BeGateway\PaymentMethod\Erip([
           'order_id' => $order_id,
           'account_number' => strval($order_id),
           'service_no' => $this->getOption('erip_service_no'),
-        ));
+        ]);
         $token->addPaymentMethod($erip);
       }
 
@@ -213,7 +226,7 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
   		if($response->isSuccess()){
   			return $response->getRedirectUrl();
   		} else {
-  			return $router->getRootUrl() . "begateway/error";
+  			return $router->getRootUrl() . 'begateway/error';
   		}
     }
 
@@ -228,10 +241,10 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
        */
        $currency = \RS\Orm\Request::make()
                         ->from(new \Catalog\Model\Orm\Currency())
-                        ->where(array(
+                        ->where([
                            'public'  => 1,
                            'is_base'  => 1,
-                        ))
+                        ])
                         ->object();
        return $currency ? $currency->title : false;
     }
@@ -241,6 +254,8 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
     * @param \Shop\Model\Orm\Transaction $transaction - объект транзакции
     * @param \RS\Http\Request $request - объект запросов
     * @return string
+    * @throws ResultException
+    * @throws ShopException
     */
     // function onResult(\Shop\Model\Orm\Transaction $transaction, \RS\Http\Request $request)
     function onResult(\Shop\Model\Orm\Transaction $transaction, \RS\Http\Request $request)
@@ -284,26 +299,23 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
             $this->error_message('E005', t('Не успешный статус оплаты'));
         }
 
-        $transaction['status'] = \Shop\Model\Orm\Transaction::STATUS_SUCCESS;
-        $transaction->update();
-        // Если это транзакция оплаты заказа
-        if ($transaction->order_id) {
-          if ($transaction->getPayment()->success_status) {
-            // Выставляем статус который указан в настройках типа оплаты
-            $order->status = $transaction->getPayment()->success_status;
-          }
-          $order->is_payed = 1; // Ставим пометку "Оплачен"
-          $order->update();
+        $change = new ChangeTransaction($transaction);
+        $changelog = '';
 
-          $notice = new \Shop\Model\Notice\OrderPayed;
-          $notice->init($order);
-          \Alerts\Model\Manager::send($notice);
+        $change->setNewStatus(Transaction::STATUS_SUCCESS);
 
-          $text = sprintf(t('Заказ $s оплачен. UID %s. Способ оплаты %s'), $transaction->order_id, $webhook->getUid(), $webhook->getResponse()->transaction->payment_type);
-          ob_start();
-          echo 'OK';
-          die();
+        if ($transaction['status'] == Transaction::STATUS_HOLD) {
+            $changelog .= t('Холдирование %0 успешно завершено на сумму %0', [
+              $webhook->getUid(),
+              $money->getAmount()
+            ]);
+        } else {
+            $changelog .= t('Платёж %0 успешно выполнен', [$webhook->getUid()]);
         }
+
+        $change->setChangelog($changelog);
+        $change->applyChanges();
+        return $change;
     }
     /**
      * Возвращает ID заказа исходя из REQUEST-параметров соотвествующего типа оплаты

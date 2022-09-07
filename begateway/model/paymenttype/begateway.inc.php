@@ -299,24 +299,30 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
             $this->error_message('E005', t('Не успешный статус оплаты'));
         }
 
-        $change = new ChangeTransaction($transaction);
-        $changelog = '';
+        if (\RS\Helper\Tools::compareVersion('6.0.0', \Setup::$VERSION, '>=')) {
+            $change = new ChangeTransaction($transaction);
+            $changelog = '';
 
-        $change->setNewStatus(Transaction::STATUS_SUCCESS);
+            $change->setNewStatus(Transaction::STATUS_SUCCESS);
 
-        if ($transaction['status'] == Transaction::STATUS_HOLD) {
-            $changelog .= t('Холдирование %0 успешно завершено на сумму %0', [
-              $webhook->getUid(),
-              $money->getAmount()
-            ]);
+            if ($transaction['status'] == Transaction::STATUS_HOLD) {
+                $changelog .= t('Холдирование %0 успешно завершено на сумму %1', [
+                    $webhook->getUid(),
+                    $money->getAmount()
+                ]);
+            } else {
+                $changelog .= t('Платёж %0 успешно выполнен', [$webhook->getUid()]);
+            }
+
+            $change->setChangelog($changelog);
+            $change->applyChanges();
         } else {
-            $changelog .= t('Платёж %0 успешно выполнен', [$webhook->getUid()]);
+            $change = $this->changeTransactionStatusV5($transaction, $webhook);
         }
 
-        $change->setChangelog($changelog);
-        $change->applyChanges();
         return $change;
     }
+
     /**
      * Возвращает ID заказа исходя из REQUEST-параметров соотвествующего типа оплаты
      * Используется только для Online-платежей
@@ -387,4 +393,26 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
         $message = sprintf("%s %s", $code, $message);
         throw new ResultException($message, 1);
      }
+
+     /**
+      * Обновляет статус транзакции для версий 5 и ниже
+      * @param \Shop\Model\Orm\Transaction $transaction - объект транзакции
+      * @param \BeGateway\Webhook $webhook объек вебхука с результатом операции
+      * @return string
+      * @throws ResultException
+      * @throws ShopException
+     */
+
+     protected function changeTransactionStatusV5(\Shop\Model\Orm\Transaction $transaction, \BeGateway\Webhook $webhook)
+     {
+        // получаем данные заказа
+        $order = $transaction->getOrder();
+        if (empty($order)) {
+            $this->error_message('E001', t('Заказ не найден'));
+        }
+
+        $transaction['status'] = \Shop\Model\Orm\Transaction::STATUS_SUCCESS;
+        $transaction->update();
+        return $webhook->getUid();
+      }
 }

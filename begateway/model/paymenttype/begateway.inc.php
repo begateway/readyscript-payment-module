@@ -299,7 +299,7 @@ class BeGateway extends \Shop\Model\PaymentType\AbstractType
             $this->error_message('E005', t('Не успешный статус оплаты'));
         }
 
-        if (class_exists(ChangeTransaction)) {
+        if (\RS\Helper\Tools::compareVersion('6.0.0', \Setup::$VERSION, '>=')) {
             $change = new ChangeTransaction($transaction);
             $changelog = '';
 
